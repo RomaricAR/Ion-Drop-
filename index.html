@@ -10,7 +10,7 @@
         --border: #334155; --text: #f8fafc; --muted: #94a3b8; --accent: #38bdf8;
         --success: #22c55e; --error: #ef4444; --warning: #eab308;
         --nitrogen: #8b5cf6; --sulfur: #f59e0b; --carbon: #06b6d4;
-        --phosphorus: #ec4899; --chlorine: #10b981;
+        --phosphorus: #ec4899; --chlorine: #10b981; --hydrogen: #6366f1;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -57,7 +57,7 @@
     #progress-label { font-size: .75rem; color: var(--muted); margin-top: 4px; text-align:center; }
 
     /* ---------- Layout ---------- */
-    #game-wrapper { display: flex; gap: 12px; width: 100%; max-width: 1100px; flex: 1; align-items: stretch; }
+    #game-wrapper { display: flex; gap: 12px; width: 100%; max-width: 1280px; flex: 1; align-items: stretch; }
 
     #side-panel { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
     .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
@@ -67,7 +67,7 @@
     .help li { margin: 0 0 6px 16px; font-size: .82rem; color: var(--muted); line-height: 1.4; }
 
     /* ---------- Play container ---------- */
-    #play-container { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0;
+    #play-container { flex: 1; min-width: 0; align-self: flex-start; display: flex; flex-direction: column; gap: 0;
         border: 2px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
 
     #now-banner { display:flex; align-items:center; justify-content:center; gap: 12px; padding: 10px;
@@ -76,9 +76,11 @@
     #now-chip { font-size: 1.25rem; font-weight: 800; padding: 6px 16px; border-radius: 8px; border: 2px solid rgba(255,255,255,.25); color:#fff; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
     #now-chip.idle { background: transparent; border-color: var(--border); color: var(--muted); box-shadow:none; font-weight:600; font-size: 1rem; }
 
-    #drop-zone { position: relative; width: 100%; height: 240px; flex-shrink: 0;
+    #play-body { display: flex; }
+
+    #drop-zone { position: relative; flex: 0 0 40%; min-height: 0;
         background: linear-gradient(180deg, rgba(15,23,42,.9) 0%, rgba(30,41,59,.5) 100%);
-        border-bottom: 2px solid var(--border); overflow: hidden; }
+        border-right: 2px solid var(--border); overflow: hidden; }
 
     .falling-piece { position: absolute; padding: 8px 16px; border-radius: 8px; font-weight: 800;
         box-shadow: 0 6px 16px rgba(0,0,0,.6); transform: translateX(-50%); z-index: 10;
@@ -89,6 +91,7 @@
     .falling-piece.carbon     { background: var(--carbon); }
     .falling-piece.phosphorus { background: var(--phosphorus); }
     .falling-piece.chlorine   { background: var(--chlorine); }
+    .falling-piece.hydrogen   { background: var(--hydrogen); }
     .falling-piece.frozen { filter: saturate(.4) brightness(.8); outline: 2px dashed var(--accent); }
 
     @keyframes spawnIn { from { transform: translateX(-50%) scale(.7); opacity:0; } to { transform: translateX(-50%) scale(1); opacity:1; } }
@@ -155,6 +158,8 @@
         #side-panel { width: 100%; flex-direction: row; flex-wrap: wrap; }
         #side-panel .panel { flex: 1 1 200px; }
         .help { display: none; }
+        #play-body { flex-direction: column; }
+        #drop-zone { flex: none; height: 300px; width: 100%; border-right: none; border-bottom: 2px solid var(--border); }
     }
 </style>
 </head>
@@ -186,6 +191,7 @@
     <div id="side-panel">
         <div class="panel">
             <div class="panel-title">Ion Families</div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--hydrogen)"></span>Hydrogen (H)</div>
             <div class="legend-row"><span class="legend-dot" style="background:var(--nitrogen)"></span>Nitrogen (N)</div>
             <div class="legend-row"><span class="legend-dot" style="background:var(--carbon)"></span>Carbon (C)</div>
             <div class="legend-row"><span class="legend-dot" style="background:var(--sulfur)"></span>Sulfur (S)</div>
@@ -209,6 +215,7 @@
             <span id="now-label">Now placing:</span>
             <span id="now-chip" class="idle">Press Start</span>
         </div>
+        <div id="play-body">
         <div id="drop-zone"></div>
         <div class="table-scroll">
             <table>
@@ -222,6 +229,7 @@
                 </thead>
                 <tbody id="table-body"></tbody>
             </table>
+        </div>
         </div>
     </div>
 </div>
@@ -278,25 +286,33 @@
    Each entry: { family, element, formula, name, color }
    ============================================================ */
 const IONS = [
-    { family: "Nitrogen",   element: "N",  formula: "NH₄⁺",   name: "Ammonium",           color: "nitrogen"   },
-    { family: "Nitrogen",   element: "N",  formula: "NO₃⁻",   name: "Nitrate",            color: "nitrogen"   },
-    { family: "Nitrogen",   element: "N",  formula: "NO₂⁻",   name: "Nitrite",            color: "nitrogen"   },
-    { family: "Carbon",     element: "C",  formula: "CO₃²⁻",  name: "Carbonate",          color: "carbon"     },
-    { family: "Carbon",     element: "C",  formula: "HCO₃⁻",  name: "Hydrogen carbonate", color: "carbon"     },
-    { family: "Sulfur",     element: "S",  formula: "SO₄²⁻",  name: "Sulfate",            color: "sulfur"     },
-    { family: "Sulfur",     element: "S",  formula: "SO₃²⁻",  name: "Sulfite",            color: "sulfur"     },
-    { family: "Phosphorus", element: "P",  formula: "PO₄³⁻",  name: "Phosphate",          color: "phosphorus" },
-    { family: "Chlorine",   element: "Cl", formula: "ClO⁻",   name: "Hypochlorite",       color: "chlorine"   },
-    { family: "Chlorine",   element: "Cl", formula: "ClO₂⁻",  name: "Chlorite",           color: "chlorine"   },
-    { family: "Chlorine",   element: "Cl", formula: "ClO₃⁻",  name: "Chlorate",           color: "chlorine"   },
-    { family: "Chlorine",   element: "Cl", formula: "ClO₄⁻",  name: "Perchlorate",        color: "chlorine"   }
+    { family: "Hydrogen",   element: "H",  formula: "OH⁻",     name: "Hydroxide",            color: "hydrogen"   },
+    { family: "Nitrogen",   element: "N",  formula: "NH₄⁺",    name: "Ammonium",             color: "nitrogen"   },
+    { family: "Nitrogen",   element: "N",  formula: "NO₃⁻",    name: "Nitrate",              color: "nitrogen"   },
+    { family: "Nitrogen",   element: "N",  formula: "NO₂⁻",    name: "Nitrite",              color: "nitrogen"   },
+    { family: "Chlorine",   element: "Cl", formula: "ClO₄⁻",   name: "Perchlorate",          color: "chlorine"   },
+    { family: "Chlorine",   element: "Cl", formula: "ClO₃⁻",   name: "Chlorate",             color: "chlorine"   },
+    { family: "Chlorine",   element: "Cl", formula: "ClO₂⁻",   name: "Chlorite",             color: "chlorine"   },
+    { family: "Chlorine",   element: "Cl", formula: "ClO⁻",    name: "Hypochlorite",         color: "chlorine"   },
+    { family: "Carbon",     element: "C",  formula: "CO₃²⁻",   name: "Carbonate",            color: "carbon"     },
+    { family: "Carbon",     element: "C",  formula: "HCO₃⁻",   name: "Hydrogen carbonate",   color: "carbon"     },
+    { family: "Carbon",     element: "C",  formula: "CN⁻",     name: "Cyanide",              color: "carbon"     },
+    { family: "Carbon",     element: "C",  formula: "C₂H₃O₂⁻", name: "Acetate",              color: "carbon"     },
+    { family: "Sulfur",     element: "S",  formula: "SO₄²⁻",   name: "Sulfate",              color: "sulfur"     },
+    { family: "Sulfur",     element: "S",  formula: "HSO₄⁻",   name: "Hydrogen sulfate",     color: "sulfur"     },
+    { family: "Sulfur",     element: "S",  formula: "SO₃²⁻",   name: "Sulfite",              color: "sulfur"     },
+    { family: "Sulfur",     element: "S",  formula: "HSO₃⁻",   name: "Hydrogen sulfite",     color: "sulfur"     },
+    { family: "Phosphorus", element: "P",  formula: "PO₄³⁻",   name: "Phosphate",            color: "phosphorus" },
+    { family: "Phosphorus", element: "P",  formula: "HPO₄²⁻",  name: "Hydrogen phosphate",   color: "phosphorus" },
+    { family: "Phosphorus", element: "P",  formula: "H₂PO₄⁻",  name: "Dihydrogen phosphate", color: "phosphorus" },
+    { family: "Phosphorus", element: "P",  formula: "PO₃³⁻",   name: "Phosphite",            color: "phosphorus" }
 ].map((d, i) => ({ id: "ion" + i, ...d }));
 
 const COLOR_VAR = {
     nitrogen: "var(--nitrogen)", sulfur: "var(--sulfur)", carbon: "var(--carbon)",
-    phosphorus: "var(--phosphorus)", chlorine: "var(--chlorine)"
+    phosphorus: "var(--phosphorus)", chlorine: "var(--chlorine)", hydrogen: "var(--hydrogen)"
 };
-const SPEEDS = { relaxed: 65, normal: 105, fast: 155 }; // px / second
+const FALL_SECONDS = { relaxed: 8, normal: 6, fast: 4 }; // seconds to cross the lane
 const POWERUPS = { freeze: 3, hint: 3 };
 
 /* ============================================================
@@ -448,7 +464,7 @@ class Engine {
         this.piece = document.createElement("div");
         this.piece.className = "falling-piece " + row.color;
         this.piece.textContent = this.target.value;
-        this.pieceLeft = 15 + Math.random() * 70;
+        this.pieceLeft = 30 + Math.random() * 40;
         this.pieceY = 0;
         this.piece.style.left = this.pieceLeft + "%";
         this.piece.style.top = "0px";
@@ -467,10 +483,11 @@ class Engine {
             this.elapsed += dt;
             this.updateTime();
             if (!this.frozen && this.piece) {
-                const ramp = (this.correctCount / this.totalBlanks) * 40; // gentle speed-up
-                this.pieceY += (SPEEDS[this.speed] + ramp) * dt;
+                const h = this.dropZone.clientHeight;
+                const sec = FALL_SECONDS[this.speed] * (1 - 0.3 * (this.correctCount / this.totalBlanks)); // gentle speed-up
+                this.pieceY += (h / sec) * dt;
                 this.piece.style.top = this.pieceY + "px";
-                if (this.pieceY >= this.dropZone.clientHeight - 38) this.miss();
+                if (this.pieceY >= h - 38) this.miss();
             }
         }
         if (this.running) this._raf = requestAnimationFrame(t => this.loop(t));
