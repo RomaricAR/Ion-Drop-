@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polyatomic Ion Quest — Chemistry Game</title>
+<style>
+    :root {
+        --bg: #0f172a; --bg2: #1a1f3a; --surface: #1e293b; --surface2:#162033;
+        --border: #334155; --text: #f8fafc; --muted: #94a3b8; --accent: #38bdf8;
+        --success: #22c55e; --error: #ef4444; --warning: #eab308;
+        --nitrogen: #8b5cf6; --sulfur: #f59e0b; --carbon: #06b6d4;
+        --phosphorus: #ec4899; --chlorine: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    html, body { height: 100%; }
+    body {
+        background: radial-gradient(1200px 600px at 50% -10%, #243056 0%, var(--bg) 45%, var(--bg2) 100%);
+        color: var(--text); display: flex; flex-direction: column; align-items: center;
+        min-height: 100vh; padding: 12px; gap: 10px;
+    }
+
+    /* ---------- Header ---------- */
+    #header { width: 100%; max-width: 1100px; text-align: center; }
+    h1 { font-size: 1.8rem; letter-spacing: .5px; background: linear-gradient(135deg, var(--accent), var(--success)); -webkit-background-clip: text; background-clip:text; -webkit-text-fill-color: transparent; }
+    #subtitle { color: var(--muted); font-size: .9rem; margin-top: 2px; }
+
+    /* ---------- Toolbar ---------- */
+    #toolbar {
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; justify-content: center;
+        width: 100%; max-width: 1100px; padding: 10px; background: var(--surface);
+        border: 1px solid var(--border); border-radius: 10px;
+    }
+    .stat-box {
+        background: rgba(56,189,248,.08); border: 1px solid rgba(56,189,248,.4); padding: 6px 14px;
+        border-radius: 8px; text-align: center; min-width: 84px;
+    }
+    .stat-label { color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .6px; }
+    .stat-value { color: var(--accent); font-size: 1.25rem; font-weight: 700; margin-top: 2px; }
+    .spacer { flex: 1 1 auto; }
+
+    button {
+        background: var(--bg); color: var(--text); border: 1px solid var(--border);
+        padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 600;
+        transition: .15s; font-size: .9rem; line-height: 1.2;
+    }
+    button:hover:not(:disabled) { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    .pwr small { display:block; font-weight:400; font-size:.65rem; color: var(--muted); }
+
+    /* ---------- Progress ---------- */
+    #progress-wrap { width: 100%; max-width: 1100px; }
+    #progress-track { height: 12px; background: var(--surface); border:1px solid var(--border); border-radius: 999px; overflow: hidden; }
+    #progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width .35s ease; }
+    #progress-label { font-size: .75rem; color: var(--muted); margin-top: 4px; text-align:center; }
+
+    /* ---------- Layout ---------- */
+    #game-wrapper { display: flex; gap: 12px; width: 100%; max-width: 1100px; flex: 1; align-items: stretch; }
+
+    #side-panel { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .panel-title { font-weight: 700; color: var(--accent); text-transform: uppercase; font-size: .72rem; letter-spacing: .6px; margin-bottom: 8px; }
+    .legend-row { display: flex; align-items: center; gap: 8px; font-size: .85rem; padding: 4px 0; color: var(--text); }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink:0; }
+    .help li { margin: 0 0 6px 16px; font-size: .82rem; color: var(--muted); line-height: 1.4; }
+
+    /* ---------- Play container ---------- */
+    #play-container { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0;
+        border: 2px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+
+    #now-banner { display:flex; align-items:center; justify-content:center; gap: 12px; padding: 10px;
+        background: var(--surface2); border-bottom: 1px solid var(--border); min-height: 56px; }
+    #now-label { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing:.6px; }
+    #now-chip { font-size: 1.25rem; font-weight: 800; padding: 6px 16px; border-radius: 8px; border: 2px solid rgba(255,255,255,.25); color:#fff; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+    #now-chip.idle { background: transparent; border-color: var(--border); color: var(--muted); box-shadow:none; font-weight:600; font-size: 1rem; }
+
+    #drop-zone { position: relative; width: 100%; height: 240px; flex-shrink: 0;
+        background: linear-gradient(180deg, rgba(15,23,42,.9) 0%, rgba(30,41,59,.5) 100%);
+        border-bottom: 2px solid var(--border); overflow: hidden; }
+
+    .falling-piece { position: absolute; padding: 8px 16px; border-radius: 8px; font-weight: 800;
+        box-shadow: 0 6px 16px rgba(0,0,0,.6); transform: translateX(-50%); z-index: 10;
+        color: #fff; border: 2px solid rgba(255,255,255,.28); white-space: nowrap; user-select:none;
+        animation: spawnIn .25s ease-out; }
+    .falling-piece.nitrogen   { background: var(--nitrogen); }
+    .falling-piece.sulfur     { background: var(--sulfur); }
+    .falling-piece.carbon     { background: var(--carbon); }
+    .falling-piece.phosphorus { background: var(--phosphorus); }
+    .falling-piece.chlorine   { background: var(--chlorine); }
+    .falling-piece.frozen { filter: saturate(.4) brightness(.8); outline: 2px dashed var(--accent); }
+
+    @keyframes spawnIn { from { transform: translateX(-50%) scale(.7); opacity:0; } to { transform: translateX(-50%) scale(1); opacity:1; } }
+    @keyframes wrongShake { 0%,100%{transform:translateX(-50%);} 25%{transform:translateX(-58%);} 75%{transform:translateX(-42%);} }
+    @keyframes particleFly { to { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; } }
+    @keyframes cellPop { 0%{transform:scale(1);} 40%{transform:scale(1.12);} 100%{transform:scale(1);} }
+    @keyframes confettiFall { to { transform: translateY(var(--fall)) rotate(var(--rot)); opacity: 0; } }
+    @keyframes hintPulse { 0%,100%{ box-shadow: inset 0 0 0 2px var(--warning); } 50%{ box-shadow: inset 0 0 0 3px var(--warning), 0 0 16px rgba(234,179,8,.6); } }
+
+    .falling-piece.is-wrong { animation: wrongShake .35s ease-in-out; background: var(--error) !important; }
+
+    /* ---------- Table ---------- */
+    .table-scroll { flex: 1; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; background: var(--bg); table-layout: fixed; }
+    th, td { border: 1px solid var(--border); padding: 4px 6px; text-align: center; font-size: .88rem; }
+    th { background: rgba(0,0,0,.45); color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing:.5px; font-weight: 700; position: sticky; top: 0; z-index: 5; }
+    td { height: 32px; }
+
+    td.family { font-weight: 700; }
+    td.element { color: var(--muted); }
+    td.given { color: var(--text); background: rgba(148,163,184,.06); font-weight: 600; }
+    td.blank { cursor: pointer; background: rgba(56,189,248,.04); transition: .12s; }
+    td.blank:hover { background: rgba(56,189,248,.22); }
+    td.blank::after { content:"?"; color: var(--muted); opacity:.4; font-weight:700; }
+    td.blank.hint { animation: hintPulse 1s ease-in-out infinite; }
+    td.blank.shake { animation: wrongShake .3s; background: rgba(239,68,68,.3) !important; }
+    td.filled { background: rgba(34,197,94,.22); color: var(--success); font-weight: 700; cursor: default; position: relative; animation: cellPop .35s ease-out; }
+    td.filled::after { content:" \2713"; }
+
+    /* ---------- Effects ---------- */
+    .particle { position: absolute; pointer-events: none; border-radius: 50%; z-index: 50; }
+    #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 2000; overflow: hidden; }
+    .confetti-piece { position: absolute; top: -12px; width: 10px; height: 14px; opacity: .95; }
+
+    #toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-12px);
+        background: var(--surface); border: 1px solid var(--accent); color: var(--text);
+        padding: 10px 22px; border-radius: 999px; font-weight: 700; z-index: 1500;
+        opacity: 0; transition: opacity .25s, transform .25s; box-shadow: 0 8px 24px rgba(0,0,0,.5); pointer-events:none; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ---------- Modals ---------- */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(2,6,23,.78); backdrop-filter: blur(3px);
+        z-index: 1000; align-items: center; justify-content: center; padding: 16px; }
+    .overlay.active { display: flex; }
+    .modal { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 28px;
+        text-align: center; max-width: 460px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,.6); }
+    .modal h2 { font-size: 1.7rem; margin-bottom: 10px; background: linear-gradient(135deg, var(--accent), var(--success)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    .modal p { color: var(--muted); margin-bottom: 14px; line-height: 1.55; font-size: .92rem; }
+    .opt-group { text-align:left; margin: 14px 0; }
+    .opt-group > label { display:block; font-size:.78rem; color: var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+    .seg { display:flex; gap:6px; }
+    .seg button { flex:1; }
+    .seg button.sel { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .primary { width: 100%; margin-top: 18px; padding: 13px; background: var(--accent); color: var(--bg); border: none; font-weight: 800; font-size: 1.05rem; border-radius: 10px; }
+    .primary:hover { opacity: .92; background: var(--accent); color: var(--bg); }
+    .final-stats { background: var(--bg); padding: 14px 16px; border-radius: 10px; margin: 18px 0; border-left: 4px solid var(--success); }
+    .final-stat { display: flex; justify-content: space-between; margin: 7px 0; font-size: .95rem; }
+    .final-stat-label { color: var(--muted); }
+    .final-stat-value { color: var(--accent); font-weight: 700; }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 820px) {
+        #game-wrapper { flex-direction: column; }
+        #side-panel { width: 100%; flex-direction: row; flex-wrap: wrap; }
+        #side-panel .panel { flex: 1 1 200px; }
+        .help { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<div id="header">
+    <h1>⚗️ Polyatomic Ion Quest</h1>
+    <div id="subtitle">Catch the falling ions and complete the table!</div>
+</div>
+
+<div id="toolbar">
+    <div class="stat-box"><div class="stat-label">Score</div><div class="stat-value" id="score-val">0</div></div>
+    <div class="stat-box"><div class="stat-label">Combo</div><div class="stat-value" id="combo-val">×1</div></div>
+    <div class="stat-box"><div class="stat-label">Time</div><div class="stat-value" id="time-val">0:00</div></div>
+    <div class="spacer"></div>
+    <button id="btn-pause"  class="pwr" disabled>⏸ Pause</button>
+    <button id="btn-freeze" class="pwr" disabled>❄️ Freeze<small id="freeze-uses">3 left</small></button>
+    <button id="btn-hint"   class="pwr" disabled>💡 Hint<small id="hint-uses">3 left</small></button>
+    <button id="btn-mute"   class="pwr">🔊 Sound</button>
+    <button id="btn-restart">↻ Restart</button>
+</div>
+
+<div id="progress-wrap">
+    <div id="progress-track"><div id="progress-fill"></div></div>
+    <div id="progress-label">0 / 0 placed</div>
+</div>
+
+<div id="game-wrapper">
+    <div id="side-panel">
+        <div class="panel">
+            <div class="panel-title">Ion Families</div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--nitrogen)"></span>Nitrogen (N)</div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--carbon)"></span>Carbon (C)</div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--sulfur)"></span>Sulfur (S)</div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--phosphorus)"></span>Phosphorus (P)</div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--chlorine)"></span>Chlorine (Cl)</div>
+        </div>
+        <div class="panel help">
+            <div class="panel-title">How to Play</div>
+            <ol class="help">
+                <li>A word falls from the top.</li>
+                <li>Each row already shows <em>one</em> clue — find the matching row.</li>
+                <li>Click the empty <strong>?</strong> cell to place the word.</li>
+                <li>Miss it and the word comes back — keep going until the table is complete!</li>
+                <li>Chain correct answers for combo bonuses.</li>
+            </ol>
+        </div>
+    </div>
+
+    <div id="play-container">
+        <div id="now-banner">
+            <span id="now-label">Now placing:</span>
+            <span id="now-chip" class="idle">Press Start</span>
+        </div>
+        <div id="drop-zone"></div>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>First Column</th>
+                        <th>Nonmetal</th>
+                        <th>Formula of Ion</th>
+                        <th>Name of Ion</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Start modal -->
+<div id="start-overlay" class="overlay active">
+    <div class="modal">
+        <h2>⚗️ Polyatomic Ion Quest</h2>
+        <p>Words drop like Tetris pieces. Drop each one into its correct blank to complete the polyatomic-ion table. Missed a word? It'll fall again — finish the whole table to win.</p>
+        <div class="opt-group">
+            <label>Fill in the blanks for…</label>
+            <div class="seg" id="seg-mode">
+                <button data-mode="mixed" class="sel">Mixed</button>
+                <button data-mode="names">Names</button>
+                <button data-mode="formulas">Formulas</button>
+            </div>
+        </div>
+        <div class="opt-group">
+            <label>Speed</label>
+            <div class="seg" id="seg-speed">
+                <button data-speed="relaxed">Relaxed</button>
+                <button data-speed="normal" class="sel">Normal</button>
+                <button data-speed="fast">Fast</button>
+            </div>
+        </div>
+        <button class="primary" id="btn-start">▶ Start Game</button>
+    </div>
+</div>
+
+<!-- Win modal -->
+<div id="win-overlay" class="overlay">
+    <div class="modal">
+        <h2 id="win-title">🎉 Table Complete!</h2>
+        <p id="win-message">You named every polyatomic ion. Nice work!</p>
+        <div class="final-stats">
+            <div class="final-stat"><span class="final-stat-label">Score</span><span class="final-stat-value" id="final-score">0</span></div>
+            <div class="final-stat"><span class="final-stat-label">Time</span><span class="final-stat-value" id="final-time">0:00</span></div>
+            <div class="final-stat"><span class="final-stat-label">Best Combo</span><span class="final-stat-value" id="final-combo">×1</span></div>
+            <div class="final-stat"><span class="final-stat-label">Accuracy</span><span class="final-stat-value" id="final-accuracy">100%</span></div>
+        </div>
+        <button class="primary" id="btn-again">↻ Play Again</button>
+    </div>
+</div>
+
+<div id="confetti"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   Ion data — grouped by nonmetal.
+   Teachers: edit this array to change the table.
+   Each entry: { family, element, formula, name, color }
+   ============================================================ */
+const IONS = [
+    { family: "Nitrogen",   element: "N",  formula: "NH₄⁺",   name: "Ammonium",           color: "nitrogen"   },
+    { family: "Nitrogen",   element: "N",  formula: "NO₃⁻",   name: "Nitrate",            color: "nitrogen"   },
+    { family: "Nitrogen",   element: "N",  formula: "NO₂⁻",   name: "Nitrite",            color: "nitrogen"   },
+    { family: "Carbon",     element: "C",  formula: "CO₃²⁻",  name: "Carbonate",          color: "carbon"     },
+    { family: "Carbon",     element: "C",  formula: "HCO₃⁻",  name: "Hydrogen carbonate", color: "carbon"     },
+    { family: "Sulfur",     element: "S",  formula: "SO₄²⁻",  name: "Sulfate",            color: "sulfur"     },
+    { family: "Sulfur",     element: "S",  formula: "SO₃²⁻",  name: "Sulfite",            color: "sulfur"     },
+    { family: "Phosphorus", element: "P",  formula: "PO₄³⁻",  name: "Phosphate",          color: "phosphorus" },
+    { family: "Chlorine",   element: "Cl", formula: "ClO⁻",   name: "Hypochlorite",       color: "chlorine"   },
+    { family: "Chlorine",   element: "Cl", formula: "ClO₂⁻",  name: "Chlorite",           color: "chlorine"   },
+    { family: "Chlorine",   element: "Cl", formula: "ClO₃⁻",  name: "Chlorate",           color: "chlorine"   },
+    { family: "Chlorine",   element: "Cl", formula: "ClO₄⁻",  name: "Perchlorate",        color: "chlorine"   }
+].map((d, i) => ({ id: "ion" + i, ...d }));
+
+const COLOR_VAR = {
+    nitrogen: "var(--nitrogen)", sulfur: "var(--sulfur)", carbon: "var(--carbon)",
+    phosphorus: "var(--phosphorus)", chlorine: "var(--chlorine)"
+};
+const SPEEDS = { relaxed: 65, normal: 105, fast: 155 }; // px / second
+const POWERUPS = { freeze: 3, hint: 3 };
+
+/* ============================================================
+   Audio — tiny synth, no external files. Mutable.
+   ============================================================ */
+class Sound {
+    constructor() { this.ctx = null; this.muted = false; }
+    init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } }
+    tone(freq, dur, type = "sine", when = 0, vol = 0.18) {
+        if (this.muted || !this.ctx) return;
+        const t = this.ctx.currentTime + when;
+        const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(vol, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        osc.connect(gain).connect(this.ctx.destination);
+        osc.start(t); osc.stop(t + dur);
+    }
+    correct(combo) { const base = 520 + Math.min(combo, 8) * 40; this.tone(base, .14, "triangle"); this.tone(base * 1.5, .16, "triangle", .06); }
+    wrong()  { this.tone(160, .22, "square", 0, .14); }
+    place()  { this.tone(340, .07, "sine", 0, .1); }
+    freeze() { this.tone(880, .2, "sine"); this.tone(660, .25, "sine", .08); }
+    win()    { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, .3, "triangle", i * 0.12, .2)); }
+}
+
+/* ============================================================
+   Effects — particles, confetti, toast
+   ============================================================ */
+const Effects = {
+    burst(x, y, color, n = 10) {
+        const zone = document.getElementById("drop-zone");
+        for (let i = 0; i < n; i++) {
+            const p = document.createElement("div");
+            p.className = "particle";
+            const size = 6 + Math.random() * 6;
+            Object.assign(p.style, { left: x + "px", top: y + "px", width: size + "px", height: size + "px", background: color });
+            const ang = (i / n) * Math.PI * 2, dist = 30 + Math.random() * 30;
+            p.style.setProperty("--tx", Math.cos(ang) * dist + "px");
+            p.style.setProperty("--ty", Math.sin(ang) * dist + "px");
+            p.style.animation = "particleFly .6s ease-out forwards";
+            zone.appendChild(p);
+            setTimeout(() => p.remove(), 600);
+        }
+    },
+    confetti() {
+        const box = document.getElementById("confetti");
+        const colors = Object.values(COLOR_VAR).concat(["var(--accent)", "var(--success)", "var(--warning)"]);
+        for (let i = 0; i < 120; i++) {
+            const c = document.createElement("div");
+            c.className = "confetti-piece";
+            c.style.left = Math.random() * 100 + "vw";
+            c.style.background = colors[i % colors.length];
+            c.style.setProperty("--fall", (60 + Math.random() * 40) + "vh");
+            c.style.setProperty("--rot", (Math.random() * 720 - 360) + "deg");
+            c.style.animation = `confettiFall ${1.6 + Math.random() * 1.4}s ease-in ${Math.random() * .4}s forwards`;
+            box.appendChild(c);
+            setTimeout(() => c.remove(), 3600);
+        }
+    },
+    toast(msg) {
+        const el = document.getElementById("toast");
+        el.textContent = msg; el.classList.add("show");
+        clearTimeout(this._t);
+        this._t = setTimeout(() => el.classList.remove("show"), 1100);
+    }
+};
+
+const PRAISE = ["Nice!", "Correct!", "Sharp!", "Got it!", "Spot on!", "Chemist!", "Clean!"];
+
+/* ============================================================
+   Game engine
+   ============================================================ */
+class Engine {
+    constructor() {
+        this.sound = new Sound();
+        this.tableBody = document.getElementById("table-body");
+        this.dropZone  = document.getElementById("drop-zone");
+        this.nowChip   = document.getElementById("now-chip");
+
+        this.mode = "mixed";
+        this.speed = "normal";
+        this.totalBlanks = 0;
+        this.reset(false);
+        this.renderTable();
+        this.bindUI();
+    }
+
+    /* ---- setup / reset ---- */
+    reset(render = true) {
+        cancelAnimationFrame(this._raf);
+        this.score = 0; this.combo = 0; this.maxCombo = 0;
+        this.correctCount = 0; this.mistakes = 0;
+        this.elapsed = 0; this.lastTs = 0;
+        this.paused = false; this.frozen = false; this.running = false; this.won = false;
+        this.uses = { ...POWERUPS };
+        this.remaining = [];       // [{rowId, col}] blanks still to place
+        this.given = {};           // rowId -> "formula" | "name"  (clue shown)
+        this.filled = new Set();   // "rowId-col" placed by player
+        this.target = null;        // {rowId, col, value, color}
+        this.pieceY = 0; this.pieceLeft = 50;
+        this.lastRowId = null;
+        if (this.piece) { this.piece.remove(); }
+        this.piece = null;
+        this.dropZone.innerHTML = "";
+        if (render) { this.renderTable(); this.renderStats(); }
+    }
+
+    setupBoard() {
+        this.given = {};
+        this.remaining = [];
+        IONS.forEach(row => {
+            let givenCol;
+            if (this.mode === "names") givenCol = "formula";
+            else if (this.mode === "formulas") givenCol = "name";
+            else givenCol = Math.random() < 0.5 ? "formula" : "name";
+            this.given[row.id] = givenCol;
+            const blankCol = givenCol === "formula" ? "name" : "formula";
+            this.remaining.push({ rowId: row.id, col: blankCol });
+        });
+        this.totalBlanks = this.remaining.length;
+    }
+
+    start() {
+        this.sound.init();
+        if (this.sound.ctx && this.sound.ctx.state === "suspended") this.sound.ctx.resume();
+        this.reset(false);
+        this.setupBoard();
+        this.running = true;
+        this.renderTable();
+        this.renderStats();
+        document.getElementById("btn-pause").disabled = false;
+        document.getElementById("btn-pause").textContent = "⏸ Pause";
+        this.spawn();
+        this.lastTs = performance.now();
+        this._raf = requestAnimationFrame(ts => this.loop(ts));
+    }
+
+    /* ---- spawning ---- */
+    spawn() {
+        if (!this.running || this.remaining.length === 0) return;
+        let pool = this.remaining;
+        if (pool.length > 1) { const f = pool.filter(t => t.rowId !== this.lastRowId); if (f.length) pool = f; }
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        const row = IONS.find(r => r.id === pick.rowId);
+        this.lastRowId = pick.rowId;
+        this.target = { rowId: pick.rowId, col: pick.col, value: row[pick.col], color: row.color };
+
+        this.piece = document.createElement("div");
+        this.piece.className = "falling-piece " + row.color;
+        this.piece.textContent = this.target.value;
+        this.pieceLeft = 15 + Math.random() * 70;
+        this.pieceY = 0;
+        this.piece.style.left = this.pieceLeft + "%";
+        this.piece.style.top = "0px";
+        this.dropZone.appendChild(this.piece);
+
+        this.nowChip.className = "";
+        this.nowChip.style.background = COLOR_VAR[row.color];
+        this.nowChip.textContent = this.target.value;
+    }
+
+    /* ---- main loop ---- */
+    loop(ts) {
+        const dt = Math.min((ts - this.lastTs) / 1000, 0.05);
+        this.lastTs = ts;
+        if (this.running && !this.paused) {
+            this.elapsed += dt;
+            this.updateTime();
+            if (!this.frozen && this.piece) {
+                const ramp = (this.correctCount / this.totalBlanks) * 40; // gentle speed-up
+                this.pieceY += (SPEEDS[this.speed] + ramp) * dt;
+                this.piece.style.top = this.pieceY + "px";
+                if (this.pieceY >= this.dropZone.clientHeight - 38) this.miss();
+            }
+        }
+        if (this.running) this._raf = requestAnimationFrame(t => this.loop(t));
+    }
+
+    /* ---- interactions ---- */
+    onCellClick(rowId, col) {
+        if (!this.running || this.paused || !this.target) return;
+        if (this.filled.has(rowId + "-" + col)) return;
+        if (rowId === this.target.rowId && col === this.target.col) this.hitCorrect();
+        else this.hitWrong(rowId, col);
+    }
+
+    hitCorrect() {
+        const key = this.target.rowId + "-" + this.target.col;
+        this.filled.add(key);
+        this.remaining = this.remaining.filter(t => !(t.rowId === this.target.rowId && t.col === this.target.col));
+        this.combo += 1; this.maxCombo = Math.max(this.maxCombo, this.combo);
+        this.correctCount += 1;
+        const pts = 100 * Math.min(this.combo, 6);
+        this.score += pts;
+
+        this.sound.correct(this.combo);
+        if (this.piece) Effects.burst(this.piece.offsetLeft, this.piece.offsetTop + 14, COLOR_VAR[this.target.color], 12);
+        Effects.toast(this.combo >= 3 ? `Combo ×${this.combo}! +${pts}` : PRAISE[Math.floor(Math.random() * PRAISE.length)]);
+
+        if (this.piece) { this.piece.remove(); this.piece = null; }
+        this.nowChip.className = "idle"; this.nowChip.style.background = ""; this.nowChip.textContent = "…";
+        this.renderTable(); this.renderStats();
+
+        if (this.remaining.length === 0) { this.win(); return; }
+        setTimeout(() => this.spawn(), 280);
+    }
+
+    hitWrong(rowId, col) {
+        this.combo = 0; this.mistakes += 1;
+        this.sound.wrong();
+        this.renderStats();
+        if (this.piece) { this.piece.classList.add("is-wrong"); setTimeout(() => this.piece && this.piece.classList.remove("is-wrong"), 360); }
+        const cell = this.tableBody.querySelector(`td[data-row="${rowId}"][data-col="${col}"]`);
+        if (cell) { cell.classList.add("shake"); setTimeout(() => cell.classList.remove("shake"), 320); }
+    }
+
+    miss() {
+        this.combo = 0; this.mistakes += 1;
+        this.sound.wrong();
+        if (this.piece) {
+            Effects.burst(this.piece.offsetLeft, this.dropZone.clientHeight - 30, "var(--error)", 8);
+            this.piece.remove(); this.piece = null;
+        }
+        Effects.toast("Missed — it'll come back!");
+        this.nowChip.className = "idle"; this.nowChip.style.background = ""; this.nowChip.textContent = "…";
+        this.renderStats();
+        setTimeout(() => this.spawn(), 260); // word stays in remaining → reappears
+    }
+
+    win() {
+        this.running = false; this.won = true;
+        cancelAnimationFrame(this._raf);
+        this.sound.win();
+        Effects.confetti();
+        document.getElementById("final-score").textContent = this.score;
+        document.getElementById("final-time").textContent = this.fmtTime(this.elapsed);
+        document.getElementById("final-combo").textContent = "×" + this.maxCombo;
+        const total = this.correctCount + this.mistakes;
+        const acc = total ? Math.round((this.correctCount / total) * 100) : 100;
+        document.getElementById("final-accuracy").textContent = acc + "%";
+        document.getElementById("win-message").textContent = this.mistakes === 0
+            ? "Flawless run — every ion placed without a single miss!"
+            : `You completed the table with ${acc}% accuracy. Try again for a perfect run!`;
+        document.getElementById("btn-pause").disabled = true;
+        document.getElementById("btn-freeze").disabled = true;
+        document.getElementById("btn-hint").disabled = true;
+        setTimeout(() => document.getElementById("win-overlay").classList.add("active"), 400);
+    }
+
+    /* ---- power-ups ---- */
+    togglePause() {
+        if (!this.running) return;
+        this.paused = !this.paused;
+        document.getElementById("btn-pause").textContent = this.paused ? "▶ Resume" : "⏸ Pause";
+    }
+    doFreeze() {
+        if (!this.running || this.frozen || this.uses.freeze <= 0) return;
+        this.uses.freeze--; this.frozen = true;
+        this.sound.freeze();
+        if (this.piece) this.piece.classList.add("frozen");
+        this.updatePowerLabels();
+        setTimeout(() => {
+            this.frozen = false;
+            if (this.piece) this.piece.classList.remove("frozen");
+        }, 5000);
+    }
+    doHint() {
+        if (!this.running || this.uses.hint <= 0 || !this.target) return;
+        this.uses.hint--;
+        this.updatePowerLabels();
+        const cell = this.tableBody.querySelector(`td[data-row="${this.target.rowId}"][data-col="${this.target.col}"]`);
+        if (cell) { cell.classList.add("hint"); setTimeout(() => cell.classList.remove("hint"), 2000); }
+    }
+    toggleMute() {
+        this.sound.muted = !this.sound.muted;
+        document.getElementById("btn-mute").textContent = this.sound.muted ? "🔇 Muted" : "🔊 Sound";
+    }
+    updatePowerLabels() {
+        document.getElementById("freeze-uses").textContent = this.uses.freeze + " left";
+        document.getElementById("hint-uses").textContent = this.uses.hint + " left";
+        document.getElementById("btn-freeze").disabled = !this.running || this.uses.freeze <= 0;
+        document.getElementById("btn-hint").disabled = !this.running || this.uses.hint <= 0;
+    }
+
+    /* ---- rendering ---- */
+    renderTable() {
+        this.tableBody.innerHTML = "";
+        IONS.forEach(row => {
+            const tr = document.createElement("tr");
+            const fam = document.createElement("td");
+            fam.className = "family"; fam.textContent = row.family;
+            fam.style.color = COLOR_VAR[row.color];
+            const el = document.createElement("td");
+            el.className = "element"; el.textContent = row.element;
+            tr.appendChild(fam); tr.appendChild(el);
+
+            ["formula", "name"].forEach(col => {
+                const td = document.createElement("td");
+                td.dataset.row = row.id; td.dataset.col = col;
+                const isGiven = this.given[row.id] === col;
+                const isFilled = this.filled.has(row.id + "-" + col);
+                if (isGiven) { td.className = "given"; td.textContent = row[col]; }
+                else if (isFilled) { td.className = "filled"; td.textContent = row[col]; }
+                else {
+                    td.className = "blank"; td.textContent = "";
+                    td.addEventListener("click", () => this.onCellClick(row.id, col));
+                }
+                tr.appendChild(td);
+            });
+            this.tableBody.appendChild(tr);
+        });
+    }
+
+    renderStats() {
+        document.getElementById("score-val").textContent = this.score;
+        document.getElementById("combo-val").textContent = "×" + Math.max(this.combo, 1);
+        const placed = this.correctCount, total = this.totalBlanks || 0;
+        const pct = total ? Math.round((placed / total) * 100) : 0;
+        document.getElementById("progress-fill").style.width = pct + "%";
+        document.getElementById("progress-label").textContent = `${placed} / ${total} placed`;
+        this.updatePowerLabels();
+    }
+
+    updateTime() { document.getElementById("time-val").textContent = this.fmtTime(this.elapsed); }
+    fmtTime(s) { const m = Math.floor(s / 60), sec = Math.floor(s % 60); return m + ":" + String(sec).padStart(2, "0"); }
+
+    /* ---- UI binding ---- */
+    bindUI() {
+        const segMode = document.getElementById("seg-mode");
+        segMode.addEventListener("click", e => {
+            const b = e.target.closest("button"); if (!b) return;
+            segMode.querySelectorAll("button").forEach(x => x.classList.remove("sel"));
+            b.classList.add("sel"); this.mode = b.dataset.mode;
+        });
+        const segSpeed = document.getElementById("seg-speed");
+        segSpeed.addEventListener("click", e => {
+            const b = e.target.closest("button"); if (!b) return;
+            segSpeed.querySelectorAll("button").forEach(x => x.classList.remove("sel"));
+            b.classList.add("sel"); this.speed = b.dataset.speed;
+        });
+
+        document.getElementById("btn-start").addEventListener("click", () => {
+            document.getElementById("start-overlay").classList.remove("active");
+            this.start();
+        });
+        const backToStart = () => {
+            cancelAnimationFrame(this._raf);
+            document.getElementById("win-overlay").classList.remove("active");
+            document.getElementById("confetti").innerHTML = "";
+            this.reset(true);
+            this.nowChip.className = "idle"; this.nowChip.style.background = ""; this.nowChip.textContent = "Press Start";
+            document.getElementById("btn-pause").disabled = true;
+            document.getElementById("btn-pause").textContent = "⏸ Pause";
+            document.getElementById("start-overlay").classList.add("active");
+        };
+        document.getElementById("btn-again").addEventListener("click", backToStart);
+        document.getElementById("btn-restart").addEventListener("click", backToStart);
+
+        document.getElementById("btn-pause").addEventListener("click", () => this.togglePause());
+        document.getElementById("btn-freeze").addEventListener("click", () => this.doFreeze());
+        document.getElementById("btn-hint").addEventListener("click", () => this.doHint());
+        document.getElementById("btn-mute").addEventListener("click", () => this.toggleMute());
+
+        document.addEventListener("keydown", e => {
+            if (e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return;
+            if (e.code === "Space") { e.preventDefault(); this.togglePause(); }
+            else if (e.key === "f" || e.key === "F") this.doFreeze();
+            else if (e.key === "h" || e.key === "H") this.doHint();
+            else if (e.key === "m" || e.key === "M") this.toggleMute();
+        });
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => new Engine());
+</script>
+</body>
+</html>
